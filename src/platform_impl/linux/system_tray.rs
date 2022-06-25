@@ -15,6 +15,16 @@ use libappindicator::{AppIndicator, AppIndicatorStatus};
 
 use super::{menu::Menu, window::WindowRequest, WindowId};
 
+#[derive(Deserialize, Debug)]
+struct FlatpakInfo {
+  Application: FlatpakApplication,
+}
+
+#[derive(Deserialize, Debug)]
+struct FlatpakApplication {
+  name: String,
+}
+
 pub struct SystemTrayBuilder {
   tray_menu: Option<Menu>,
   app_indicator: AppIndicator,
@@ -102,10 +112,43 @@ impl Drop for SystemTray {
 }
 
 fn temp_icon_path() -> std::io::Result<(PathBuf, PathBuf)> {
-  let mut parent_path = std::env::temp_dir();
+  let mut parent_path = dirs_next::runtime_dir().map_or_else(
+    || std::env::temp_dir(),
+    |dir| {
+      get_flatpak_app_name().map_or(dir.clone(), |name| {
+        PathBuf::from(dir).join("app").join(name)
+      })
+    },
+  );
+
   parent_path.push("tao");
   std::fs::create_dir_all(&parent_path)?;
   let mut icon_path = parent_path.clone();
   icon_path.push(format!("tray-icon-{}.png", uuid::Uuid::new_v4()));
   Ok((parent_path, icon_path))
+}
+
+fn get_flatpak_app_name() -> Option<String> {
+  let info = PathBuf::from("/.flatpak-info");
+
+  if !info.exists() {
+    return None;
+  }
+
+  match std::fs::read_to_string(&info) {
+    Ok(s) => match toml::from_str::<FlatpakInfo>(&s) {
+      Ok(info) => {
+        dbg!(&info);
+        Some(info.Application.name.to_string())
+      }
+      Err(e) => {
+        dbg!(e);
+        None
+      }
+    },
+    Err(e) => {
+      dbg!(e);
+      None
+    }
+  }
 }
