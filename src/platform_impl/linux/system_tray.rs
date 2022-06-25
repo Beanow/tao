@@ -15,12 +15,13 @@ use libappindicator::{AppIndicator, AppIndicatorStatus};
 
 use super::{menu::Menu, window::WindowRequest, WindowId};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "PascalCase")]
 struct FlatpakInfo {
-  Application: FlatpakApplication,
+  application: FlatpakApplication,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
 struct FlatpakApplication {
   name: String,
 }
@@ -136,10 +137,10 @@ fn get_flatpak_app_name() -> Option<String> {
   }
 
   match std::fs::read_to_string(&info) {
-    Ok(s) => match toml::from_str::<FlatpakInfo>(&s) {
+    Ok(s) => match serde_ini::from_str::<FlatpakInfo>(&s) {
       Ok(info) => {
         dbg!(&info);
-        Some(info.Application.name.to_string())
+        Some(info.application.name.to_string())
       }
       Err(e) => {
         dbg!(e);
@@ -151,4 +152,29 @@ fn get_flatpak_app_name() -> Option<String> {
       None
     }
   }
+}
+
+#[test]
+fn parse_flatpak_info() {
+  assert_eq!(
+    FlatpakInfo {
+      application: FlatpakApplication {
+        name: "app.tauri.tao-tests".to_string(),
+      }
+    },
+    serde_ini::from_str::<FlatpakInfo>(
+      r#"
+[Application]
+name=app.tauri.tao-tests
+runtime=runtime/org.gnome.Platform/x86_64/42
+
+[Instance]
+instance-id=123456789
+branch=master
+arch=x86_64
+flatpak-version=1.12.7
+"#,
+    )
+    .unwrap()
+  )
 }
