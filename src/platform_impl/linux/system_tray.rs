@@ -138,19 +138,10 @@ fn get_flatpak_app_name() -> Option<String> {
 
   match std::fs::read_to_string(&info) {
     Ok(s) => match serde_ini::from_str::<FlatpakInfo>(&s) {
-      Ok(info) => {
-        dbg!(&info);
-        Some(info.application.name.to_string())
-      }
-      Err(e) => {
-        dbg!(e);
-        None
-      }
+      Ok(info) => Some(info.application.name.to_string()),
+      _ => None,
     },
-    Err(e) => {
-      dbg!(e);
-      None
-    }
+    _ => None,
   }
 }
 
